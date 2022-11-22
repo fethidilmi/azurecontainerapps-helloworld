@@ -4,18 +4,20 @@ name: Trigger auto deployment for my-container-app
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches: [main]
     paths:
-    - '**'
-    - '.github/workflows/my-container-app-AutoDeployTrigger-1155f13f-ce19-40d7-b154-bf1bd5b62891.yml'
+      - "**"
+      - ".github/workflows/my-container-app-AutoDeployTrigger-1155f13f-ce19-40d7-b154-bf1bd5b62891.yml"
 
-  # Allow mannually trigger 
-  workflow_dispatch:      
+  # Allow mannually trigger
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    environment:
+      name: default
 
     steps:
       - name: Checkout to the branch
@@ -24,12 +26,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Log in to container registry
-        uses: docker/login-action@v1
+      - name: Login as AZR-ACA-WORKSHOP
+        uses: azure/login@v1
         with:
-          registry: acrworkshopaca.azurecr.io
-          username: ${{ secrets.MYCONTAINERAPP_REGISTRY_USERNAME }}
-          password: ${{ secrets.MYCONTAINERAPP_REGISTRY_PASSWORD }}
+          client-id: ${{ secrets.ACA_WORKSHOP_CLIENT_ID }}
+          tenant-id: ${{ secrets.ACA_WORKSHOP_TENANT_ID }}
+
+      # - name: Log in to container registry
+      #   uses: docker/login-action@v1
+      #   with:
+      #     registry: acrworkshopaca.azurecr.io
+      #     username: ${{ secrets.MYCONTAINERAPP_REGISTRY_USERNAME }}
+      #     password: ${{ secrets.MYCONTAINERAPP_REGISTRY_PASSWORD }}
+
+      - name: Docker Login
+        run: |
+          az acr login -n acrworkshopaca # Login with the current identity AZR-ACA-WORKSHOP
 
       - name: Build and push container image to registry
         uses: docker/build-push-action@v2
@@ -39,22 +51,29 @@ jobs:
           file: ./Dockerfile
           context: ./
 
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
+
+    environment:
+      name: default
+
     steps:
-      - name: Azure Login
+      - name: Login as AZR-ACA-WORKSHOP
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.MYCONTAINERAPP_AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.ACA_WORKSHOP_CLIENT_ID }}
+          tenant-id: ${{ secrets.ACA_WORKSHOP_TENANT_ID }}
 
+      # - name: Azure Login
+      #   uses: azure/login@v1
+      #   with:
+      #     creds: ${{ secrets.MYCONTAINERAPP_AZURE_CREDENTIALS }}
 
       - name: Deploy to containerapp
         uses: azure/CLI@v1
         with:
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
-            az containerapp registry set -n my-container-app -g rg-my-container-apps --server acrworkshopaca.azurecr.io --username  ${{ secrets.MYCONTAINERAPP_REGISTRY_USERNAME }} --password ${{ secrets.MYCONTAINERAPP_REGISTRY_PASSWORD }}
+            az containerapp registry set -n my-container-app -g rg-my-container-apps --server acrworkshopaca.azurecr.io --identity system # --username  ${{ secrets.MYCONTAINERAPP_REGISTRY_USERNAME }} --password ${{ secrets.MYCONTAINERAPP_REGISTRY_PASSWORD }}
             az containerapp update -n my-container-app -g rg-my-container-apps --image acrworkshopaca.azurecr.io/my-container-app:${{ github.sha }}
