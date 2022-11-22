@@ -20,17 +20,22 @@ jobs:
       name: default
 
     steps:
-      - name: Checkout to the branch
-        uses: actions/checkout@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+      - name: Az version
+        run: |
+          az version
 
       - name: Login as AZR-ACA-WORKSHOP
         uses: azure/login@v1
         with:
           client-id: ${{ secrets.ACA_WORKSHOP_CLIENT_ID }}
           tenant-id: ${{ secrets.ACA_WORKSHOP_TENANT_ID }}
+          subscription-id: ${{ secrets.ACA_WORKSHOP_SUBSCRIPTION_ID }}
+
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
       # - name: Log in to container registry
       #   uses: docker/login-action@v1
